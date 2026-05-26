@@ -1,80 +1,78 @@
 <script setup lang="ts">
-import { ref, reactive, computed } from 'vue'
+import { ref, reactive, onMounted } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
+import request from '../../api/request'
 
 interface User {
   id: number
+  username: string
   name: string
   email: string
   phone: string
   role: string
-  status: boolean
-  createTime: string
+  status: number
+  created_at: string
 }
 
-// 搜索表单
 const searchForm = reactive({
   keyword: '',
   role: '',
 })
 
-// 分页
 const pagination = reactive({
   currentPage: 1,
   pageSize: 10,
   total: 0,
 })
 
-// 模拟用户数据
-const allUsers = ref<User[]>([
-  { id: 1, name: '张三', email: 'zhangsan@example.com', phone: '13800138001', role: 'admin', status: true, createTime: '2024-01-15' },
-  { id: 2, name: '李四', email: 'lisi@example.com', phone: '13800138002', role: 'user', status: true, createTime: '2024-02-20' },
-  { id: 3, name: '王五', email: 'wangwu@example.com', phone: '13800138003', role: 'user', status: false, createTime: '2024-03-10' },
-  { id: 4, name: '赵六', email: 'zhaoliu@example.com', phone: '13800138004', role: 'editor', status: true, createTime: '2024-04-05' },
-  { id: 5, name: '孙七', email: 'sunqi@example.com', phone: '13800138005', role: 'user', status: true, createTime: '2024-05-12' },
-  { id: 6, name: '周八', email: 'zhouba@example.com', phone: '13800138006', role: 'user', status: true, createTime: '2024-06-18' },
-  { id: 7, name: '吴九', email: 'wujiu@example.com', phone: '13800138007', role: 'editor', status: false, createTime: '2024-07-22' },
-  { id: 8, name: '郑十', email: 'zhengshi@example.com', phone: '13800138008', role: 'user', status: true, createTime: '2024-08-30' },
-])
+const userList = ref<User[]>([])
+const loading = ref(false)
 
-// 过滤后的用户列表
-const filteredUsers = computed(() => {
-  let users = [...allUsers.value]
-
-  if (searchForm.keyword) {
-    const keyword = searchForm.keyword.toLowerCase()
-    users = users.filter(
-      (u) => u.name.toLowerCase().includes(keyword) || u.email.toLowerCase().includes(keyword)
-    )
+async function fetchUsers() {
+  loading.value = true
+  try {
+    const res: any = await request.get('/users', {
+      params: {
+        keyword: searchForm.keyword,
+        role: searchForm.role,
+        page: pagination.currentPage,
+        pageSize: pagination.pageSize,
+      },
+    })
+    if (res.success) {
+      userList.value = res.data.list
+      pagination.total = res.data.total
+    }
+  } finally {
+    loading.value = false
   }
+}
 
-  if (searchForm.role) {
-    users = users.filter((u) => u.role === searchForm.role)
-  }
-
-  pagination.total = users.length
-
-  const start = (pagination.currentPage - 1) * pagination.pageSize
-  const end = start + pagination.pageSize
-  return users.slice(start, end)
-})
-
-// 对话框
 const dialogVisible = ref(false)
 const dialogTitle = ref('新增用户')
 const formRef = ref<FormInstance>()
-const userForm = reactive<Omit<User, 'id' | 'createTime'>>({
+const userForm = reactive({
+  username: '',
+  password: '',
   name: '',
   email: '',
   phone: '',
   role: 'user',
-  status: true,
+  status: 1,
 })
 
 const rules: FormRules = {
-  name: [
+  username: [
     { required: true, message: '请输入用户名', trigger: 'blur' },
+    { min: 3, max: 20, message: '长度在 3 到 20 个字符', trigger: 'blur' },
+  ],
+  password: [
+    { required: true, message: '请输入密码', trigger: 'blur' },
+    { min: 6, max: 20, message: '长度在 6 到 20 个字符', trigger: 'blur' },
+  ],
+  name: [
+    { required: true, message: '请输入姓名', trigger: 'blur' },
     { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' },
   ],
   email: [
@@ -88,17 +86,18 @@ const rules: FormRules = {
   role: [{ required: true, message: '请选择角色', trigger: 'change' }],
 }
 
-// 当前编辑的用户ID
 let editingUserId: number | null = null
 
 function handleSearch() {
   pagination.currentPage = 1
+  fetchUsers()
 }
 
 function handleReset() {
   searchForm.keyword = ''
   searchForm.role = ''
   pagination.currentPage = 1
+  fetchUsers()
 }
 
 function handleAdd() {
@@ -112,6 +111,8 @@ function handleEdit(user: User) {
   dialogTitle.value = '编辑用户'
   editingUserId = user.id
   Object.assign(userForm, {
+    username: user.username,
+    password: '',
     name: user.name,
     email: user.email,
     phone: user.phone,
@@ -126,58 +127,80 @@ function handleDelete(user: User) {
     confirmButtonText: '确定',
     cancelButtonText: '取消',
     type: 'warning',
-  }).then(() => {
-    allUsers.value = allUsers.value.filter((u) => u.id !== user.id)
-    ElMessage.success('删除成功')
+  }).then(async () => {
+    try {
+      const res: any = await request.delete(`/users/${user.id}`)
+      if (res.success) {
+        ElMessage.success('删除成功')
+        fetchUsers()
+      }
+    } catch {
+      // error handled by interceptor
+    }
   }).catch(() => {})
 }
 
 async function handleSubmit() {
   if (!formRef.value) return
 
-  await formRef.value.validate((valid) => {
+  await formRef.value.validate(async (valid) => {
     if (!valid) return
 
-    if (editingUserId) {
-      // 编辑
-      const index = allUsers.value.findIndex((u) => u.id === editingUserId)
-      if (index !== -1) {
-        allUsers.value[index] = {
-          ...allUsers.value[index],
-          ...userForm,
+    try {
+      if (editingUserId) {
+        const res: any = await request.put(`/users/${editingUserId}`, {
+          name: userForm.name,
+          email: userForm.email,
+          phone: userForm.phone,
+          role: userForm.role,
+          status: userForm.status,
+        })
+        if (res.success) {
+          ElMessage.success('编辑成功')
+          dialogVisible.value = false
+          fetchUsers()
+        }
+      } else {
+        const res: any = await request.post('/users', {
+          username: userForm.username,
+          password: userForm.password,
+          name: userForm.name,
+          email: userForm.email,
+          phone: userForm.phone,
+          role: userForm.role,
+          status: userForm.status,
+        })
+        if (res.success) {
+          ElMessage.success('新增成功')
+          dialogVisible.value = false
+          fetchUsers()
         }
       }
-      ElMessage.success('编辑成功')
-    } else {
-      // 新增
-      const newUser: User = {
-        id: Date.now(),
-        ...userForm,
-        createTime: new Date().toISOString().split('T')[0],
-      }
-      allUsers.value.unshift(newUser)
-      ElMessage.success('新增成功')
+    } catch {
+      // error handled by interceptor
     }
-
-    dialogVisible.value = false
   })
 }
 
 function resetForm() {
+  userForm.username = ''
+  userForm.password = ''
   userForm.name = ''
   userForm.email = ''
   userForm.phone = ''
   userForm.role = 'user'
-  userForm.status = true
+  userForm.status = 1
 }
 
 function handlePageChange(page: number) {
   pagination.currentPage = page
+  fetchUsers()
 }
 
 function handleSizeChange(size: number) {
   pagination.pageSize = size
   pagination.currentPage = 1
+  fetchUsers()
 }
 
 function getRoleTag(role: string) {
@@ -197,6 +220,10 @@ function getRoleLabel(role: string) {
   }
   return map[role] || role
 }
+
+onMounted(() => {
+  fetchUsers()
+})
 </script>
 
 <template>
@@ -207,7 +234,7 @@ function getRoleLabel(role: string) {
         <el-form-item label="关键词">
           <el-input
             v-model="searchForm.keyword"
-            placeholder="搜索用户名/邮箱"
+            placeholder="搜索姓名/邮箱"
             clearable
             @keyup.enter="handleSearch"
           />
@@ -245,9 +272,9 @@ function getRoleLabel(role: string) {
       </template>
 
       <!-- 表格 -->
-      <el-table :data="filteredUsers" stripe border style="width: 100%">
+      <el-table v-loading="loading" :data="userList" stripe border style="width: 100%">
         <el-table-column prop="id" label="ID" width="80" align="center" />
-        <el-table-column prop="name" label="用户名" width="120" />
+        <el-table-column prop="name" label="姓名" width="120" />
         <el-table-column prop="email" label="邮箱" min-width="200" />
         <el-table-column prop="phone" label="手机号" width="140" />
         <el-table-column prop="role" label="角色" width="100" align="center">
@@ -259,12 +286,12 @@ function getRoleLabel(role: string) {
         </el-table-column>
         <el-table-column prop="status" label="状态" width="100" align="center">
           <template #default="{ row }">
-            <el-tag :type="row.status ? 'success' : 'info'">
-              {{ row.status ? '启用' : '禁用' }}
+            <el-tag :type="row.status === 1 ? 'success' : 'info'">
+              {{ row.status === 1 ? '启用' : '禁用' }}
             </el-tag>
           </template>
         </el-table-column>
-        <el-table-column prop="createTime" label="创建时间" width="120" />
+        <el-table-column prop="created_at" label="创建时间" width="180" />
         <el-table-column label="操作" width="160" align="center" fixed="right">
           <template #default="{ row }">
             <el-button type="primary" link @click="handleEdit(row)">
@@ -304,8 +331,14 @@ function getRoleLabel(role: string) {
         :rules="rules"
         label-width="80px"
       >
-        <el-form-item label="用户名" prop="name">
-          <el-input v-model="userForm.name" placeholder="请输入用户名" />
+        <el-form-item v-if="!editingUserId" label="用户名" prop="username">
+          <el-input v-model="userForm.username" placeholder="请输入用户名" />
+        </el-form-item>
+        <el-form-item v-if="!editingUserId" label="密码" prop="password">
+          <el-input v-model="userForm.password" type="password" placeholder="请输入密码" show-password />
+        </el-form-item>
+        <el-form-item label="姓名" prop="name">
+          <el-input v-model="userForm.name" placeholder="请输入姓名" />
         </el-form-item>
         <el-form-item label="邮箱" prop="email">
           <el-input v-model="userForm.email" placeholder="请输入邮箱" />
@@ -321,7 +354,7 @@ function getRoleLabel(role: string) {
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
-          <el-switch v-model="userForm.status" />
+          <el-switch v-model="userForm.status" :active-value="1" :inactive-value="0" />
         </el-form-item>
       </el-form>
       <template #footer>

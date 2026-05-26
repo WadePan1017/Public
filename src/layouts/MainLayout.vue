@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessageBox } from 'element-plus'
 import { useUserStore } from '../stores/user'
@@ -9,10 +9,18 @@ const route = useRoute()
 const userStore = useUserStore()
 const isCollapse = ref(false)
 
-const menuItems = [
-  { path: '/dashboard', title: '数据概览', icon: 'DataBoard' },
-  { path: '/users', title: '用户管理', icon: 'User' },
+const allMenuItems = [
+  { path: '/dashboard', title: '数据概览', icon: 'DataBoard', roles: ['admin', 'editor', 'user'] },
+  { path: '/todos', title: '待办事项', icon: 'Finished', roles: ['admin', 'editor', 'user'] },
+  { path: '/notes', title: '记事本', icon: 'Notebook', roles: ['admin', 'editor', 'user'] },
+  { path: '/downloads', title: '下载记录', icon: 'Download', roles: ['admin'] },
+  { path: '/users', title: '用户管理', icon: 'User', roles: ['admin'] },
 ]
+
+const menuItems = computed(() => {
+  const role = userStore.userInfo?.role || 'user'
+  return allMenuItems.filter(item => item.roles.includes(role))
+})
 
 function handleMenuSelect(path: string) {
   router.push(path)

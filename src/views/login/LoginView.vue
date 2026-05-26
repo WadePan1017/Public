@@ -9,10 +9,12 @@ const router = useRouter()
 const userStore = useUserStore()
 const formRef = ref<FormInstance>()
 const loading = ref(false)
+const mode = ref<'login' | 'register'>('login')
 
 const loginForm = reactive({
   username: '',
   password: '',
+  name: '',
 })
 
 const rules: FormRules = {
@@ -24,9 +26,18 @@ const rules: FormRules = {
     { required: true, message: '请输入密码', trigger: 'blur' },
     { min: 6, max: 20, message: '长度在 6 到 20 个字符', trigger: 'blur' },
   ],
+  name: [
+    { required: true, message: '请输入姓名', trigger: 'blur' },
+    { min: 2, max: 20, message: '长度在 2 到 20 个字符', trigger: 'blur' },
+  ],
 }
 
-async function handleLogin() {
+function toggleMode() {
+  mode.value = mode.value === 'login' ? 'register' : 'login'
+  loginForm.name = ''
+}
+
+async function handleSubmit() {
   if (!formRef.value) return
 
   await formRef.value.validate(async (valid) => {
@@ -34,12 +45,22 @@ async function handleLogin() {
 
     loading.value = true
     try {
-      const success = await userStore.login(loginForm.username, loginForm.password)
-      if (success) {
-        ElMessage.success('登录成功')
-        router.push('/dashboard')
+      if (mode.value === 'login') {
+        const success = await userStore.login(loginForm.username, loginForm.password)
+        if (success) {
+          ElMessage.success('登录成功')
+          router.push('/dashboard')
+        } else {
+          ElMessage.error('用户名或密码错误')
+        }
       } else {
-        ElMessage.error('用户名或密码错误')
+        const result = await userStore.register(loginForm.username, loginForm.password, loginForm.name)
+        if (result.success) {
+          ElMessage.success('注册成功')
+          router.push('/dashboard')
+        } else {
+          ElMessage.error(result.message || '注册失败')
+        }
       }
     } finally {
       loading.value = false
@@ -53,7 +74,7 @@ async function handleLogin() {
     <div class="login-card">
       <div class="login-header">
         <h1>后台管理系统</h1>
-        <p>请输入账号密码登录</p>
+        <p>{{ mode === 'login' ? '请输入账号密码登录' : '创建新账号' }}</p>
       </div>
 
       <el-form
@@ -63,6 +84,14 @@ async function handleLogin() {
         label-position="top"
         size="large"
       >
+        <el-form-item v-if="mode === 'register'" label="姓名" prop="name">
+          <el-input
+            v-model="loginForm.name"
+            placeholder="请输入姓名"
+            prefix-icon="User"
+          />
+        </el-form-item>
+
         <el-form-item label="用户名" prop="username">
           <el-input
             v-model="loginForm.username"
@@ -78,7 +107,7 @@ async function handleLogin() {
             placeholder="请输入密码"
             prefix-icon="Lock"
             show-password
-            @keyup.enter="handleLogin"
+            @keyup.enter="handleSubmit"
           />
         </el-form-item>
 
@@ -87,15 +116,17 @@ async function handleLogin() {
             type="primary"
             :loading="loading"
             class="login-btn"
-            @click="handleLogin"
+            @click="handleSubmit"
           >
-            登录
+            {{ mode === 'login' ? '登录' : '注册' }}
           </el-button>
         </el-form-item>
       </el-form>
 
       <div class="login-tip">
-        <p>测试账号：admin / 123456</p>
+        <el-link type="primary" @click="toggleMode">
+          {{ mode === 'login' ? '没有账号？立即注册' : '已有账号？去登录' }}
+        </el-link>
       </div>
     </div>
   </div>
@@ -141,10 +172,5 @@ async function handleLogin() {
 .login-tip {
   text-align: center;
   margin-top: 16px;
-}
-
-.login-tip p {
-  font-size: 13px;
-  color: #909399;
 }
 </style>
