@@ -232,6 +232,7 @@ export async function initDatabase() {
   tryAddColumn('downloads', 'category', 'TEXT', "''")
   tryAddColumn('downloads', 'resolution', 'TEXT', "''")
   tryAddColumn('downloads', 'error_message', 'TEXT', "''")
+  tryAddColumn('downloads', 'thumbnail_url', 'TEXT', "''")
 
   // Migrate old 'done' status to 'completed'
   db.run("UPDATE downloads SET status = 'completed' WHERE status = 'done'")

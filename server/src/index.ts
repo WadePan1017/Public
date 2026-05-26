@@ -8,6 +8,7 @@ import dashboardRoutes from './routes/dashboard'
 import downloadRoutes from './routes/downloads'
 import todoRoutes from './routes/todos'
 import noteRoutes from './routes/notes'
+import uploadRoutes from './routes/uploads'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -15,10 +16,14 @@ const PORT = process.env.PORT || 3000
 app.use(cors())
 app.use(express.json())
 
+// 静态文件：上传的文件
+app.use('/uploads', express.static(path.join(__dirname, '..', '..', 'uploads')))
+
 app.use('/api/auth', authRoutes)
 app.use('/api/users', userRoutes)
 app.use('/api/dashboard', dashboardRoutes)
 app.use('/api/downloads', downloadRoutes)
+app.use('/api/uploads', uploadRoutes)
 app.use('/api/todos', todoRoutes)
 app.use('/api/notes', noteRoutes)
 

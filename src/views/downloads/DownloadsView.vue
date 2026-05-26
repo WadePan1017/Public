@@ -4,6 +4,82 @@ import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
 import request from '../../api/request'
 
+// --- 文件上传 ---
+const uploadDialogVisible = ref(false)
+const uploadFiles = ref<File[]>([])
+const uploadProgress = ref(0)
+const uploading = ref(false)
+const dragOver = ref(false)
+const uploadCategory = ref('')
+const uploadTags = ref('')
+
+function openUpload() {
+  uploadFiles.value = []
+  uploadProgress.value = 0
+  uploadCategory.value = ''
+  uploadTags.value = ''
+  uploadDialogVisible.value = true
+}
+
+function handleDragOver(e: DragEvent) { e.preventDefault(); dragOver.value = true }
+function handleDragLeave() { dragOver.value = false }
+function handleDrop(e: DragEvent) {
+  e.preventDefault(); dragOver.value = false
+  const files = e.dataTransfer?.files
+  if (files) addFiles(Array.from(files))
+}
+function handleFileSelect(e: Event) {
+  const input = e.target as HTMLInputElement
+  if (input.files) addFiles(Array.from(input.files))
+  input.value = ''
+}
+function addFiles(newFiles: File[]) {
+  const allowed = /\.(mp4|avi|mov|mkv|webm|flv|wmv|mp3|wav|jpg|jpeg|png|gif|webp|bmp|svg)$/i
+  for (const f of newFiles) {
+    if (allowed.test(f.name)) uploadFiles.value.push(f)
+  }
+}
+function removeUploadFile(index: number) { uploadFiles.value.splice(index, 1) }
+
+async function submitUpload() {
+  if (uploadFiles.value.length === 0) return
+  uploading.value = true
+  uploadProgress.value = 0
+
+  for (let i = 0; i < uploadFiles.value.length; i++) {
+    const formData = new FormData()
+    formData.append('file', uploadFiles.value[i])
+    if (uploadCategory.value) formData.append('category', uploadCategory.value)
+    if (uploadTags.value) formData.append('tags', uploadTags.value)
+
+    try {
+      const xhr = new XMLHttpRequest()
+      await new Promise<void>((resolve, reject) => {
+        xhr.open('POST', '/api/uploads')
+        const token = localStorage.getItem('token')
+        if (token) xhr.setRequestHeader('Authorization', `Bearer ${token}`)
+        xhr.upload.onprogress = (e) => {
+          if (e.lengthComputable) {
+            const fileProgress = e.loaded / e.total
+            uploadProgress.value = Math.round(((i + fileProgress) / uploadFiles.value.length) * 100)
+          }
+        }
+        xhr.onload = () => { resolve() }
+        xhr.onerror = () => { reject(new Error('upload failed')) }
+        xhr.send(formData)
+      })
+    } catch {
+      ElMessage.error(`「${uploadFiles.value[i].name}」上传失败`)
+    }
+  }
+
+  uploading.value = false
+  uploadProgress.value = 100
+  ElMessage.success(`已上传 ${uploadFiles.value.length} 个文件`)
+  uploadDialogVisible.value = false
+  fetchDownloads()
+}
+
 interface Download {
   id: number
   title: string
@@ -20,6 +96,8 @@ interface Download {
   category: string
   resolution: string
   error_message: string
+  thumbnail_url: string
+  file_path: string
   created_at: string
 }
 
@@ -270,11 +348,13 @@ onMounted(() => { fetchDownloads() })
           <span>下载记录</span>
           <div class="header-actions">
             <template v-if="selectedRows.length > 0">
+
               <span class="selected-info">已选 {{ selectedRows.length }} 项</span>
               <el-button size="small" @click="openBatchStatus">批量改状态</el-button>
               <el-button size="small" @click="openBatchCategory">批量分类</el-button>
               <el-button size="small" type="danger" @click="handleBatchDelete">批量删除</el-button>
             </template>
+            <el-button type="success" @click="openUpload"><el-icon><UploadFilled /></el-icon> 上传文件</el-button>
             <el-button type="primary" @click="handleAdd"><el-icon><Plus /></el-icon> 新增</el-button>
           </div>
         </div>
@@ -283,6 +363,20 @@ onMounted(() => { fetchDownloads() })
       <el-table v-loading="loading" :data="downloadList" stripe border style="width: 100%" @selection-change="handleSelectionChange">
         <el-table-column type="selection" width="50" />
         <el-table-column prop="id" label="ID" width="65" align="center" />
+        <el-table-column label="" width="70" align="center">
+          <template #default="{ row }">
+            <el-image
+              v-if="row.thumbnail_url"
+              :src="row.thumbnail_url"
+              :preview-src-list="[row.thumbnail_url]"
+              fit="cover"
+              style="width: 48px; height: 36px; border-radius: 4px"
+            />
+            <el-icon v-else :size="24" color="#dcdfe6">
+              <component :is="row.media_type === 'video' ? 'VideoCamera' : 'Picture'" />
+            </el-icon>
+          </template>
+        </el-table-column>
         <el-table-column prop="title" label="标题" min-width="180" show-overflow-tooltip />
         <el-table-column prop="source" label="来源" width="100" align="center">
           <template #default="{ row }">
@@ -447,6 +541,51 @@ onMounted(() => { fetchDownloads() })
         <el-button type="primary" @click="confirmBatchCategory">确定</el-button>
       </template>
     </el-dialog>
+
+    <!-- 上传文件弹窗 -->
+    <el-dialog v-model="uploadDialogVisible" title="上传文件" width="560px" destroy-on-close>
+      <div
+        class="upload-zone"
+        :class="{ 'upload-zone-active': dragOver }"
+        @dragover="handleDragOver"
+        @dragleave="handleDragLeave"
+        @drop="handleDrop"
+        @click="($refs.fileInput as HTMLInputElement).click()"
+      >
+        <el-icon :size="48" color="#c0c4cc"><UploadFilled /></el-icon>
+        <p>将文件拖拽到此处，或 <span class="upload-link">点击选择</span></p>
+        <p class="upload-hint">支持 mp4 / avi / mov / mkv / jpg / png / gif 等格式，单文件最大 500MB</p>
+        <input ref="fileInput" type="file" multiple accept="video/*,image/*" style="display:none" @change="handleFileSelect" />
+      </div>
+
+      <div v-if="uploadFiles.length > 0" class="upload-file-list">
+        <div v-for="(file, i) in uploadFiles" :key="i" class="upload-file-item">
+          <span class="upload-file-name">{{ file.name }}</span>
+          <span class="upload-file-size">{{ formatFileSize(file.size) }}</span>
+          <el-button type="danger" link @click="removeUploadFile(i)"><el-icon><Delete /></el-icon></el-button>
+        </div>
+      </div>
+
+      <el-form v-if="uploadFiles.length > 0" label-width="60px" style="margin-top: 16px">
+        <el-form-item label="分类">
+          <el-select v-model="uploadCategory" placeholder="选择分类" clearable>
+            <el-option v-for="c in ['风景','人物','产品','教程','动画','音乐','游戏','生活']" :key="c" :label="c" :value="c" />
+          </el-select>
+        </el-form-item>
+        <el-form-item label="标签">
+          <el-input v-model="uploadTags" placeholder="多个标签用逗号分隔" />
+        </el-form-item>
+      </el-form>
+
+      <el-progress v-if="uploading" :percentage="uploadProgress" :stroke-width="8" style="margin-top: 12px" />
+
+      <template #footer>
+        <el-button @click="uploadDialogVisible = false">取消</el-button>
+        <el-button type="primary" :disabled="uploadFiles.length === 0 || uploading" :loading="uploading" @click="submitUpload">
+          {{ uploading ? '上传中...' : '开始上传' }}
+        </el-button>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -469,4 +608,20 @@ onMounted(() => { fetchDownloads() })
 .tags-input-area {
   display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
 }
+.upload-zone {
+  border: 2px dashed #dcdfe6; border-radius: 8px; padding: 40px 20px;
+  text-align: center; cursor: pointer; transition: all 0.2s;
+}
+.upload-zone:hover, .upload-zone-active {
+  border-color: #409eff; background: #ecf5ff;
+}
+.upload-link { color: #409eff; font-weight: 500; }
+.upload-hint { font-size: 12px; color: #909399; margin-top: 8px; }
+.upload-file-list { margin-top: 16px; max-height: 200px; overflow-y: auto; }
+.upload-file-item {
+  display: flex; align-items: center; gap: 12px; padding: 8px 0;
+  border-bottom: 1px solid #f0f0f0;
+}
+.upload-file-name { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.upload-file-size { font-size: 12px; color: #909399; white-space: nowrap; }
 </style>
