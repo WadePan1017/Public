@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive } from 'vue'
+import { ref, reactive, nextTick } from 'vue'
 import { useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -35,6 +35,9 @@ const rules: FormRules = {
 function toggleMode() {
   mode.value = mode.value === 'login' ? 'register' : 'login'
   loginForm.name = ''
+  nextTick(() => {
+    formRef.value?.clearValidate()
+  })
 }
 
 async function handleSubmit() {
@@ -84,7 +87,7 @@ async function handleSubmit() {
         label-position="top"
         size="large"
       >
-        <el-form-item v-if="mode === 'register'" label="姓名" prop="name">
+        <el-form-item v-show="mode === 'register'" label="姓名" prop="name">
           <el-input
             v-model="loginForm.name"
             placeholder="请输入姓名"
