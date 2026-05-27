@@ -21,3 +21,10 @@ export function authMiddleware(req: AuthRequest, res: Response, next: NextFuncti
     return res.status(401).json({ success: false, message: '登录已过期' })
   }
 }
+
+export function adminMiddleware(req: AuthRequest, res: Response, next: NextFunction) {
+  if (req.user?.role !== 'admin') {
+    return res.status(403).json({ success: false, message: '无权限，仅管理员可操作' })
+  }
+  next()
+}

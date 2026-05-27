@@ -10,10 +10,10 @@ const userStore = useUserStore()
 const isCollapse = ref(false)
 
 const allMenuItems = [
-  { path: '/dashboard', title: '数据概览', icon: 'DataBoard', roles: ['admin', 'editor', 'user'] },
-  { path: '/todos', title: '待办事项', icon: 'Finished', roles: ['admin', 'editor', 'user'] },
-  { path: '/notes', title: '记事本', icon: 'Notebook', roles: ['admin', 'editor', 'user'] },
-  { path: '/downloads', title: '下载记录', icon: 'Download', roles: ['admin'] },
+  { path: '/dashboard', title: '数据概览', icon: 'DataBoard', roles: ['admin', 'user'] },
+  { path: '/todos', title: '待办事项', icon: 'Finished', roles: ['admin', 'user'] },
+  { path: '/notes', title: '记事本', icon: 'Notebook', roles: ['admin', 'user'] },
+  { path: '/downloads', title: '下载记录', icon: 'Download', roles: ['admin', 'user'] },
   { path: '/users', title: '用户管理', icon: 'User', roles: ['admin'] },
 ]
 

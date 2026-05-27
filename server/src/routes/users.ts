@@ -1,10 +1,10 @@
 import { Router, Response } from 'express'
 import bcrypt from 'bcryptjs'
 import { getDb, saveDb } from '../database'
-import { authMiddleware, AuthRequest } from '../middleware/auth'
+import { authMiddleware, adminMiddleware, AuthRequest } from '../middleware/auth'
 
 const router = Router()
-router.use(authMiddleware)
+router.use(authMiddleware, adminMiddleware)
 
 function rowToObject(columns: string[], values: unknown[]): Record<string, unknown> {
   const obj: Record<string, unknown> = {}

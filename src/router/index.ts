@@ -31,7 +31,7 @@ const routes: RouteRecordRaw[] = [
         path: 'downloads',
         name: 'Downloads',
         component: () => import('../views/downloads/DownloadsView.vue'),
-        meta: { title: '下载记录', icon: 'Download', roles: ['admin'] },
+        meta: { title: '下载记录', icon: 'Download' },
       },
       {
         path: 'todos',
