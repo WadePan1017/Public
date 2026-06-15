@@ -7,6 +7,7 @@ import * as ElementPlusIconsVue from '@element-plus/icons-vue'
 import router from './router'
 import App from './App.vue'
 import { useUserStore } from './stores/user'
+import { setupPermission } from './utils/permission'
 import './style.css'
 
 const app = createApp(App)
@@ -19,6 +20,7 @@ const pinia = createPinia()
 app.use(pinia)
 app.use(router)
 app.use(ElementPlus, { locale: zhCn })
+setupPermission(app)
 
 // 启动时恢复登录状态
 const userStore = useUserStore()

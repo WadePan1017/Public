@@ -22,6 +22,10 @@ dist-ssr
 *.sln
 *.sw?
 
+# Build output
+dist/
+server/dist/
+
 # Server runtime data
 server/uploads/
 server/data.db

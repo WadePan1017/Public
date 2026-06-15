@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { ElMessage } from 'element-plus'
 import request from '../../api/request'
 
@@ -15,251 +15,261 @@ const newTodo = ref('')
 const loading = ref(false)
 const editingId = ref<number | null>(null)
 const editingTitle = ref('')
+const filter = ref<'all' | 'active' | 'done'>('all')
+
+const filteredTodos = computed(() => {
+  if (filter.value === 'active') return todoList.value.filter(t => t.completed === 0)
+  if (filter.value === 'done') return todoList.value.filter(t => t.completed === 1)
+  return todoList.value
+})
+
+const totalCount = computed(() => todoList.value.length)
+const completedCount = computed(() => todoList.value.filter(t => t.completed === 1).length)
+const activeCount = computed(() => totalCount.value - completedCount.value)
+const progress = computed(() => totalCount.value === 0 ? 0 : Math.round((completedCount.value / totalCount.value) * 100))
 
 async function fetchTodos() {
   loading.value = true
   try {
     const res: any = await request.get('/todos')
-    if (res.success) {
-      todoList.value = res.data.list
-    }
-  } finally {
-    loading.value = false
-  }
+    if (res.success) todoList.value = res.data.list
+  } finally { loading.value = false }
 }
 
 async function addTodo() {
   const title = newTodo.value.trim()
   if (!title) return
-
   try {
     const res: any = await request.post('/todos', { title })
-    if (res.success) {
-      todoList.value.unshift(res.data.todo)
-      newTodo.value = ''
-    }
-  } catch {
-    // handled by interceptor
-  }
+    if (res.success) { todoList.value.unshift(res.data.todo); newTodo.value = '' }
+  } catch { /* handled */ }
 }
 
 async function toggleTodo(todo: Todo) {
   try {
-    const res: any = await request.put(`/todos/${todo.id}`, {
-      completed: todo.completed === 0 ? 1 : 0,
-    })
+    const res: any = await request.put(`/todos/${todo.id}`, { completed: todo.completed === 0 ? 1 : 0 })
     if (res.success) {
       todo.completed = res.data.todo.completed
       todoList.value.sort((a, b) => a.completed - b.completed || b.id - a.id)
     }
-  } catch {
-    // handled by interceptor
-  }
+  } catch { /* handled */ }
 }
 
-function startEdit(todo: Todo) {
-  editingId.value = todo.id
-  editingTitle.value = todo.title
-}
+function startEdit(todo: Todo) { editingId.value = todo.id; editingTitle.value = todo.title }
 
 async function saveEdit(todo: Todo) {
   const title = editingTitle.value.trim()
   if (!title) return
-
   try {
     const res: any = await request.put(`/todos/${todo.id}`, { title })
-    if (res.success) {
-      todo.title = res.data.todo.title
-      editingId.value = null
-    }
-  } catch {
-    // handled by interceptor
-  }
+    if (res.success) { todo.title = res.data.todo.title; editingId.value = null }
+  } catch { /* handled */ }
 }
 
 async function deleteTodo(todo: Todo) {
   try {
     const res: any = await request.delete(`/todos/${todo.id}`)
-    if (res.success) {
-      todoList.value = todoList.value.filter(t => t.id !== todo.id)
-      ElMessage.success('已删除')
-    }
-  } catch {
-    // handled by interceptor
-  }
+    if (res.success) { todoList.value = todoList.value.filter(t => t.id !== todo.id); ElMessage.success('已删除') }
+  } catch { /* handled */ }
 }
 
-const completedCount = ref(0)
-const totalCount = ref(0)
-
-function updateCounts() {
-  totalCount.value = todoList.value.length
-  completedCount.value = todoList.value.filter(t => t.completed === 1).length
-}
-
-import { watch } from 'vue'
-watch(todoList, updateCounts, { deep: true })
-
-onMounted(() => {
-  fetchTodos()
-})
+onMounted(fetchTodos)
 </script>
 
 <template>
-  <div class="todos-view">
+  <div class="todos-page">
+    <!-- 统计 -->
+    <el-row :gutter="16" class="stats-row">
+      <el-col :span="8">
+        <div class="stat-card stat-blue">
+          <div class="stat-info">
+            <div class="stat-value">{{ totalCount }}</div>
+            <div class="stat-label">全部待办</div>
+          </div>
+          <el-icon :size="36" class="stat-icon"><List /></el-icon>
+        </div>
+      </el-col>
+      <el-col :span="8">
+        <div class="stat-card stat-orange">
+          <div class="stat-info">
+            <div class="stat-value">{{ activeCount }}</div>
+            <div class="stat-label">进行中</div>
+          </div>
+          <el-icon :size="36" class="stat-icon"><Clock /></el-icon>
+        </div>
+      </el-col>
+      <el-col :span="8">
+        <div class="stat-card stat-green">
+          <div class="stat-info">
+            <div class="stat-value">{{ completedCount }}</div>
+            <div class="stat-label">已完成</div>
+          </div>
+          <el-icon :size="36" class="stat-icon"><CircleCheck /></el-icon>
+        </div>
+      </el-col>
+    </el-row>
+
     <el-card shadow="never">
       <template #header>
-        <div class="header">
+        <div class="card-header">
           <span>待办事项</span>
-          <span class="count">{{ completedCount }} / {{ totalCount }} 已完成</span>
+          <div class="header-right">
+            <el-progress
+              :percentage="progress"
+              :stroke-width="6"
+              :show-text="false"
+              style="width: 100px"
+            />
+            <span class="progress-text">{{ progress }}%</span>
+          </div>
         </div>
       </template>
 
+      <!-- 添加 -->
       <div class="add-row">
         <el-input
           v-model="newTodo"
           placeholder="添加新的待办事项..."
+          size="large"
           clearable
           @keyup.enter="addTodo"
         >
+          <template #prefix>
+            <el-icon><Plus /></el-icon>
+          </template>
           <template #append>
-            <el-button type="primary" @click="addTodo">
-              <el-icon><Plus /></el-icon>
-            </el-button>
+            <el-button type="primary" @click="addTodo">添加</el-button>
           </template>
         </el-input>
       </div>
 
+      <!-- 筛选 -->
+      <div class="filter-bar">
+        <el-radio-group v-model="filter" size="small">
+          <el-radio-button value="all">全部 ({{ totalCount }})</el-radio-button>
+          <el-radio-button value="active">进行中 ({{ activeCount }})</el-radio-button>
+          <el-radio-button value="done">已完成 ({{ completedCount }})</el-radio-button>
+        </el-radio-group>
+      </div>
+
+      <!-- 列表 -->
       <div v-loading="loading" class="todo-list">
-        <div v-if="todoList.length === 0 && !loading" class="empty">
-          暂无待办事项，添加一个吧
-        </div>
+        <el-empty v-if="filteredTodos.length === 0 && !loading" description="暂无待办事项" />
 
-        <div
-          v-for="todo in todoList"
-          :key="todo.id"
-          class="todo-item"
-          :class="{ done: todo.completed === 1 }"
-        >
-          <el-checkbox
-            :model-value="todo.completed === 1"
-            @change="toggleTodo(todo)"
-          />
-
-          <div v-if="editingId === todo.id" class="edit-input">
-            <el-input
-              v-model="editingTitle"
-              size="small"
-              @keyup.enter="saveEdit(todo)"
-              @keyup.escape="editingId = null"
-              autofocus
+        <TransitionGroup name="list" tag="div">
+          <div
+            v-for="todo in filteredTodos"
+            :key="todo.id"
+            class="todo-item"
+            :class="{ done: todo.completed === 1 }"
+          >
+            <el-checkbox
+              :model-value="todo.completed === 1"
+              @change="toggleTodo(todo)"
             />
-          </div>
-          <span v-else class="todo-title" @dblclick="startEdit(todo)">
-            {{ todo.title }}
-          </span>
 
-          <div class="todo-actions">
-            <el-button
-              v-if="editingId !== todo.id"
-              type="primary"
-              link
-              size="small"
-              @click="startEdit(todo)"
-            >
-              编辑
-            </el-button>
-            <el-button
-              v-if="editingId === todo.id"
-              type="success"
-              link
-              size="small"
-              @click="saveEdit(todo)"
-            >
-              保存
-            </el-button>
-            <el-button
-              type="danger"
-              link
-              size="small"
-              @click="deleteTodo(todo)"
-            >
-              删除
-            </el-button>
+            <div v-if="editingId === todo.id" class="edit-input">
+              <el-input
+                v-model="editingTitle"
+                size="small"
+                @keyup.enter="saveEdit(todo)"
+                @keyup.escape="editingId = null"
+                autofocus
+              />
+            </div>
+            <div v-else class="todo-content">
+              <span class="todo-title" @dblclick="startEdit(todo)">{{ todo.title }}</span>
+              <span class="todo-date">{{ todo.created_at?.slice(0, 10) }}</span>
+            </div>
+
+            <div class="todo-actions">
+              <el-button
+                v-if="editingId !== todo.id"
+                type="primary" link size="small"
+                @click="startEdit(todo)"
+              >编辑</el-button>
+              <el-button
+                v-if="editingId === todo.id"
+                type="success" link size="small"
+                @click="saveEdit(todo)"
+              >保存</el-button>
+              <el-button type="danger" link size="small" @click="deleteTodo(todo)">删除</el-button>
+            </div>
           </div>
-        </div>
+        </TransitionGroup>
       </div>
     </el-card>
   </div>
 </template>
 
 <style scoped>
-.todos-view {
-  padding: 0;
+.todos-page { padding: 0; }
+
+.stats-row { margin-bottom: 16px; }
+
+.stat-card {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 20px; border-radius: var(--radius-lg);
+  background: var(--bg-card); border: 1px solid var(--border);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+.stat-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+.stat-blue { border-left: 4px solid #4f46e5; }
+.stat-orange { border-left: 4px solid #f59e0b; }
+.stat-green { border-left: 4px solid #10b981; }
+
+.stat-blue .stat-icon { color: #4f46e5; opacity: 0.2; }
+.stat-orange .stat-icon { color: #f59e0b; opacity: 0.2; }
+.stat-green .stat-icon { color: #10b981; opacity: 0.2; }
+
+.stat-value {
+  font-size: 28px; font-weight: 700; color: var(--text-primary);
+  line-height: 1; margin-bottom: 4px;
+}
+.stat-label { font-size: 13px; color: var(--text-secondary); }
+
+.card-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.header-right {
+  display: flex; align-items: center; gap: 8px;
+}
+.progress-text {
+  font-size: 13px; font-weight: 600; color: var(--primary);
 }
 
-.header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
+.add-row { margin-bottom: 16px; }
 
-.count {
-  font-size: 13px;
-  color: #909399;
-}
+.filter-bar { margin-bottom: 16px; }
 
-.add-row {
-  margin-bottom: 20px;
-}
-
-.todo-list {
-  min-height: 100px;
-}
-
-.empty {
-  text-align: center;
-  padding: 40px;
-  color: #909399;
-  font-size: 14px;
-}
+.todo-list { min-height: 100px; }
 
 .todo-item {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  padding: 12px 8px;
-  border-bottom: 1px solid #f0f0f0;
-  transition: opacity 0.2s;
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 12px; border-radius: var(--radius);
+  border: 1px solid transparent; margin-bottom: 4px;
+  transition: all 0.2s;
 }
+.todo-item:hover {
+  background: #f8fafc; border-color: var(--border);
+}
+.todo-item.done { opacity: 0.6; }
+.todo-item.done .todo-title { text-decoration: line-through; color: var(--text-muted); }
 
-.todo-item.done {
-  opacity: 0.5;
-}
-
-.todo-item.done .todo-title {
-  text-decoration: line-through;
-}
-
-.todo-title {
-  flex: 1;
-  font-size: 14px;
-  cursor: pointer;
-  user-select: none;
-}
-
-.edit-input {
-  flex: 1;
-}
+.todo-content { flex: 1; display: flex; align-items: center; justify-content: space-between; }
+.todo-title { font-size: 14px; cursor: pointer; user-select: none; }
+.todo-date { font-size: 12px; color: var(--text-muted); }
+.edit-input { flex: 1; }
 
 .todo-actions {
-  display: flex;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity 0.2s;
+  display: flex; gap: 4px; opacity: 0; transition: opacity 0.2s;
 }
+.todo-item:hover .todo-actions { opacity: 1; }
 
-.todo-item:hover .todo-actions {
-  opacity: 1;
-}
+/* 列表动画 */
+.list-enter-active, .list-leave-active { transition: all 0.3s ease; }
+.list-enter-from { opacity: 0; transform: translateX(-20px); }
+.list-leave-to { opacity: 0; transform: translateX(20px); }
+.list-move { transition: transform 0.3s ease; }
 </style>

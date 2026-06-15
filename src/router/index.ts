@@ -1,12 +1,17 @@
 import { createRouter, createWebHistory } from 'vue-router'
 import type { RouteRecordRaw } from 'vue-router'
-import { useUserStore } from '../stores/user'
 
 const routes: RouteRecordRaw[] = [
   {
     path: '/login',
     name: 'Login',
     component: () => import('../views/login/LoginView.vue'),
+    meta: { requiresAuth: false },
+  },
+  {
+    path: '/403',
+    name: 'Forbidden',
+    component: () => import('../views/error/403.vue'),
     meta: { requiresAuth: false },
   },
   {
@@ -25,7 +30,19 @@ const routes: RouteRecordRaw[] = [
         path: 'users',
         name: 'Users',
         component: () => import('../views/users/UsersView.vue'),
-        meta: { title: '用户管理', icon: 'User', roles: ['admin'] },
+        meta: { title: '用户管理', icon: 'User' },
+      },
+      {
+        path: 'roles',
+        name: 'Roles',
+        component: () => import('../views/roles/RolesView.vue'),
+        meta: { title: '角色管理', icon: 'UserFilled' },
+      },
+      {
+        path: 'menus',
+        name: 'Menus',
+        component: () => import('../views/menus/MenusView.vue'),
+        meta: { title: '菜单管理', icon: 'Menu' },
       },
       {
         path: 'downloads',
@@ -47,6 +64,12 @@ const routes: RouteRecordRaw[] = [
       },
     ],
   },
+  {
+    path: '/:pathMatch(.*)*',
+    name: 'NotFound',
+    component: () => import('../views/error/404.vue'),
+    meta: { requiresAuth: false },
+  },
 ]
 
 const router = createRouter({
@@ -61,14 +84,6 @@ router.beforeEach((to, _from, next) => {
     next('/login')
   } else if (to.path === '/login' && token) {
     next('/dashboard')
-  } else if (to.meta.roles) {
-    const userStore = useUserStore()
-    const userRole = userStore.userInfo?.role || 'user'
-    if ((to.meta.roles as string[]).includes(userRole)) {
-      next()
-    } else {
-      next('/dashboard')
-    }
   } else {
     next()
   }

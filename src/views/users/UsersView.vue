@@ -15,6 +15,12 @@ interface User {
   created_at: string
 }
 
+interface Role {
+  id: number
+  name: string
+  label: string
+}
+
 const searchForm = reactive({
   keyword: '',
   role: '',
@@ -27,7 +33,50 @@ const pagination = reactive({
 })
 
 const userList = ref<User[]>([])
+const roleList = ref<Role[]>([])
 const loading = ref(false)
+
+// 统计数据
+const stats = reactive({
+  total: 0,
+  adminCount: 0,
+  activeCount: 0,
+  todayCount: 0,
+})
+
+function updateStats() {
+  stats.total = pagination.total
+  stats.adminCount = userList.value.filter(u => u.role === 'admin').length
+  stats.activeCount = userList.value.filter(u => u.status === 1).length
+  const today = new Date().toISOString().slice(0, 10)
+  stats.todayCount = userList.value.filter(u => u.created_at?.startsWith(today)).length
+}
+
+// 从 API 加载角色列表
+async function fetchRoles() {
+  try {
+    const res: any = await request.get('/roles')
+    if (res.success) {
+      roleList.value = res.data.list
+    }
+  } catch {
+    // fallback
+  }
+}
+
+function getRoleLabel(roleName: string): string {
+  const role = roleList.value.find(r => r.name === roleName)
+  return role?.label || roleName
+}
+
+function getRoleTag(roleName: string): string {
+  const map: Record<string, string> = {
+    admin: 'danger',
+    editor: 'warning',
+    user: '',
+  }
+  return map[roleName] || 'info'
+}
 
 async function fetchUsers() {
   loading.value = true
@@ -43,6 +92,7 @@ async function fetchUsers() {
     if (res.success) {
       userList.value = res.data.list
       pagination.total = res.data.total
+      updateStats()
     }
   } finally {
     loading.value = false
@@ -203,31 +253,54 @@ function handleSizeChange(size: number) {
   fetchUsers()
 }
 
-function getRoleTag(role: string) {
-  const map: Record<string, string> = {
-    admin: 'danger',
-    editor: 'warning',
-    user: '',
-  }
-  return map[role] || ''
-}
-
-function getRoleLabel(role: string) {
-  const map: Record<string, string> = {
-    admin: '管理员',
-    editor: '编辑',
-    user: '普通用户',
-  }
-  return map[role] || role
-}
-
 onMounted(() => {
+  fetchRoles()
   fetchUsers()
 })
 </script>
 
 <template>
   <div class="users-view">
+    <!-- 统计卡片 -->
+    <el-row :gutter="16" class="stats-row">
+      <el-col :span="6">
+        <div class="stat-card stat-blue">
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.total }}</div>
+            <div class="stat-label">用户总数</div>
+          </div>
+          <el-icon :size="36" class="stat-icon"><User /></el-icon>
+        </div>
+      </el-col>
+      <el-col :span="6">
+        <div class="stat-card stat-purple">
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.adminCount }}</div>
+            <div class="stat-label">管理员</div>
+          </div>
+          <el-icon :size="36" class="stat-icon"><UserFilled /></el-icon>
+        </div>
+      </el-col>
+      <el-col :span="6">
+        <div class="stat-card stat-green">
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.activeCount }}</div>
+            <div class="stat-label">已启用</div>
+          </div>
+          <el-icon :size="36" class="stat-icon"><CircleCheck /></el-icon>
+        </div>
+      </el-col>
+      <el-col :span="6">
+        <div class="stat-card stat-orange">
+          <div class="stat-info">
+            <div class="stat-value">{{ stats.todayCount }}</div>
+            <div class="stat-label">今日新增</div>
+          </div>
+          <el-icon :size="36" class="stat-icon"><Plus /></el-icon>
+        </div>
+      </el-col>
+    </el-row>
+
     <!-- 搜索区域 -->
     <el-card shadow="never" class="search-card">
       <el-form :model="searchForm" inline>
@@ -241,9 +314,12 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="角色">
           <el-select v-model="searchForm.role" placeholder="全部" clearable>
-            <el-option label="管理员" value="admin" />
-            <el-option label="编辑" value="editor" />
-            <el-option label="普通用户" value="user" />
+            <el-option
+              v-for="role in roleList"
+              :key="role.name"
+              :label="role.label"
+              :value="role.name"
+            />
           </el-select>
         </el-form-item>
         <el-form-item>
@@ -264,7 +340,7 @@ onMounted(() => {
       <template #header>
         <div class="table-header">
           <span>用户列表</span>
-          <el-button type="primary" @click="handleAdd">
+          <el-button type="primary" @click="handleAdd" v-permission="'/users'">
             <el-icon><Plus /></el-icon>
             新增用户
           </el-button>
@@ -277,7 +353,7 @@ onMounted(() => {
         <el-table-column prop="name" label="姓名" width="120" />
         <el-table-column prop="email" label="邮箱" min-width="200" />
         <el-table-column prop="phone" label="手机号" width="140" />
-        <el-table-column prop="role" label="角色" width="100" align="center">
+        <el-table-column prop="role" label="角色" width="120" align="center">
           <template #default="{ row }">
             <el-tag :type="getRoleTag(row.role)">
               {{ getRoleLabel(row.role) }}
@@ -348,9 +424,12 @@ onMounted(() => {
         </el-form-item>
         <el-form-item label="角色" prop="role">
           <el-select v-model="userForm.role" placeholder="请选择角色">
-            <el-option label="管理员" value="admin" />
-            <el-option label="编辑" value="editor" />
-            <el-option label="普通用户" value="user" />
+            <el-option
+              v-for="role in roleList"
+              :key="role.name"
+              :label="role.label"
+              :value="role.name"
+            />
           </el-select>
         </el-form-item>
         <el-form-item label="状态">
@@ -368,6 +447,49 @@ onMounted(() => {
 <style scoped>
 .users-view {
   padding: 0;
+}
+
+.stats-row {
+  margin-bottom: 16px;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  transition: transform 0.2s, box-shadow 0.2s;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+.stat-blue { border-left: 4px solid #4f46e5; }
+.stat-purple { border-left: 4px solid #7c3aed; }
+.stat-green { border-left: 4px solid #10b981; }
+.stat-orange { border-left: 4px solid #f59e0b; }
+
+.stat-blue .stat-icon { color: #4f46e5; opacity: 0.2; }
+.stat-purple .stat-icon { color: #7c3aed; opacity: 0.2; }
+.stat-green .stat-icon { color: #10b981; opacity: 0.2; }
+.stat-orange .stat-icon { color: #f59e0b; opacity: 0.2; }
+
+.stat-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: var(--text-secondary);
 }
 
 .search-card {

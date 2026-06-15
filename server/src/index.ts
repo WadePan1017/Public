@@ -9,6 +9,8 @@ import downloadRoutes from './routes/downloads'
 import todoRoutes from './routes/todos'
 import noteRoutes from './routes/notes'
 import uploadRoutes from './routes/uploads'
+import menuRoutes from './routes/menus'
+import roleRoutes from './routes/roles'
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -26,6 +28,8 @@ app.use('/api/downloads', downloadRoutes)
 app.use('/api/uploads', uploadRoutes)
 app.use('/api/todos', todoRoutes)
 app.use('/api/notes', noteRoutes)
+app.use('/api/menus', menuRoutes)
+app.use('/api/roles', roleRoutes)
 
 app.get('/api/health', (_req, res) => {
   res.json({ success: true, message: 'Server is running' })

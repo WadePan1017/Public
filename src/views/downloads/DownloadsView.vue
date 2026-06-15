@@ -599,7 +599,7 @@ onMounted(() => { fetchDownloads() })
   display: flex; align-items: center; gap: 8px;
 }
 .selected-info {
-  font-size: 13px; color: #909399;
+  font-size: 13px; color: var(--text-secondary);
 }
 .pagination-wrapper {
   margin-top: 20px; display: flex; justify-content: flex-end;
@@ -609,19 +609,19 @@ onMounted(() => { fetchDownloads() })
   display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
 }
 .upload-zone {
-  border: 2px dashed #dcdfe6; border-radius: 8px; padding: 40px 20px;
+  border: 2px dashed var(--border); border-radius: var(--radius-lg); padding: 40px 20px;
   text-align: center; cursor: pointer; transition: all 0.2s;
 }
 .upload-zone:hover, .upload-zone-active {
-  border-color: #409eff; background: #ecf5ff;
+  border-color: var(--primary); background: var(--primary-bg);
 }
-.upload-link { color: #409eff; font-weight: 500; }
-.upload-hint { font-size: 12px; color: #909399; margin-top: 8px; }
+.upload-link { color: var(--primary); font-weight: 500; }
+.upload-hint { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
 .upload-file-list { margin-top: 16px; max-height: 200px; overflow-y: auto; }
 .upload-file-item {
   display: flex; align-items: center; gap: 12px; padding: 8px 0;
   border-bottom: 1px solid #f0f0f0;
 }
 .upload-file-name { flex: 1; font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.upload-file-size { font-size: 12px; color: #909399; white-space: nowrap; }
+.upload-file-size { font-size: 12px; color: var(--text-muted); white-space: nowrap; }
 </style>

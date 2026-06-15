@@ -23,6 +23,14 @@ const statsCards = ref<StatsCard[]>([
 
 const recentActivities = ref<{ id: number; title: string; source: string; status: string; created_at: string }[]>([])
 
+// 系统概览
+const sysStats = ref({
+  userCount: 0,
+  activeUserCount: 0,
+  roleCount: 0,
+  menuCount: 0,
+})
+
 // --- animated number ---
 function animateValue(index: number, newValue: number, isFloat = false) {
   const card = statsCards.value[index]
@@ -189,6 +197,12 @@ async function fetchStats() {
     const res: any = await request.get('/dashboard/stats')
     if (res.success) {
       const d = res.data
+      sysStats.value = {
+        userCount: d.userCount || 0,
+        activeUserCount: d.activeUserCount || 0,
+        roleCount: d.roleCount || 0,
+        menuCount: d.menuCount || 0,
+      }
       animateValue(0, d.downloadCount)
       animateValue(1, d.weekCount)
       animateValue(2, d.videoCount)
@@ -257,6 +271,46 @@ onMounted(() => {
       </el-col>
     </el-row>
 
+    <!-- 系统概览 -->
+    <el-row :gutter="16" class="stats-row">
+      <el-col :xs="12" :sm="6">
+        <div class="sys-card sys-blue">
+          <el-icon :size="24"><User /></el-icon>
+          <div class="sys-info">
+            <div class="sys-value">{{ sysStats.userCount }}</div>
+            <div class="sys-label">用户总数</div>
+          </div>
+        </div>
+      </el-col>
+      <el-col :xs="12" :sm="6">
+        <div class="sys-card sys-green">
+          <el-icon :size="24"><CircleCheck /></el-icon>
+          <div class="sys-info">
+            <div class="sys-value">{{ sysStats.activeUserCount }}</div>
+            <div class="sys-label">活跃用户</div>
+          </div>
+        </div>
+      </el-col>
+      <el-col :xs="12" :sm="6">
+        <div class="sys-card sys-purple">
+          <el-icon :size="24"><UserFilled /></el-icon>
+          <div class="sys-info">
+            <div class="sys-value">{{ sysStats.roleCount }}</div>
+            <div class="sys-label">角色数量</div>
+          </div>
+        </div>
+      </el-col>
+      <el-col :xs="12" :sm="6">
+        <div class="sys-card sys-orange">
+          <el-icon :size="24"><Menu /></el-icon>
+          <div class="sys-info">
+            <div class="sys-value">{{ sysStats.menuCount }}</div>
+            <div class="sys-label">菜单数量</div>
+          </div>
+        </div>
+      </el-col>
+    </el-row>
+
     <!-- 图表区 -->
     <el-row :gutter="20" class="chart-row">
       <el-col :xs="24" :md="14">
@@ -313,11 +367,35 @@ onMounted(() => {
   display: flex; align-items: center; justify-content: space-between;
 }
 .stats-value {
-  font-size: 28px; font-weight: bold; color: #303133; margin-bottom: 8px;
+  font-size: 28px; font-weight: bold; color: var(--text-primary); margin-bottom: 8px;
 }
 .stats-title {
-  font-size: 14px; color: #909399;
+  font-size: 14px; color: var(--text-secondary);
 }
+.sys-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 16px 20px; border-radius: var(--radius-lg);
+  background: var(--bg-card); border: 1px solid var(--border);
+  margin-bottom: 16px; transition: transform 0.2s, box-shadow 0.2s;
+}
+.sys-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+
+.sys-blue { border-left: 4px solid #4f46e5; }
+.sys-blue .el-icon { color: #4f46e5; }
+.sys-green { border-left: 4px solid #10b981; }
+.sys-green .el-icon { color: #10b981; }
+.sys-purple { border-left: 4px solid #7c3aed; }
+.sys-purple .el-icon { color: #7c3aed; }
+.sys-orange { border-left: 4px solid #f59e0b; }
+.sys-orange .el-icon { color: #f59e0b; }
+
+.sys-value {
+  font-size: 22px; font-weight: 700; color: var(--text-primary); line-height: 1;
+}
+.sys-label {
+  font-size: 12px; color: var(--text-secondary); margin-top: 2px;
+}
+
 .chart-row { margin-bottom: 20px; }
 .chart-container { height: 350px; }
 .activity-content {

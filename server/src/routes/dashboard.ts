@@ -94,10 +94,23 @@ router.get('/stats', (_req: AuthRequest, res: Response) => {
     })
   }
 
+  // 系统管理数据
+  const roleResult = db.exec('SELECT COUNT(*) FROM roles')
+  const roleCount = roleResult[0]?.values[0]?.[0] as number || 0
+
+  const menuResult = db.exec('SELECT COUNT(*) FROM menus')
+  const menuCount = menuResult[0]?.values[0]?.[0] as number || 0
+
+  const activeUserResult = db.exec("SELECT COUNT(*) FROM users WHERE status = 1")
+  const activeUserCount = activeUserResult[0]?.values[0]?.[0] as number || 0
+
   res.json({
     success: true,
     data: {
       userCount,
+      activeUserCount,
+      roleCount,
+      menuCount,
       downloadCount,
       videoCount,
       imageCount,

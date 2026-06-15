@@ -237,6 +237,89 @@ export async function initDatabase() {
   // Migrate old 'done' status to 'completed'
   db.run("UPDATE downloads SET status = 'completed' WHERE status = 'done'")
 
+  // ---- 菜单权限表 ----
+  db.run(`
+    CREATE TABLE IF NOT EXISTS menus (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      parent_id  INTEGER NOT NULL DEFAULT 0,
+      name       TEXT NOT NULL,
+      path       TEXT NOT NULL DEFAULT '',
+      icon       TEXT NOT NULL DEFAULT '',
+      sort_order INTEGER NOT NULL DEFAULT 0,
+      visible    INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+    )
+  `)
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS roles (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      name       TEXT NOT NULL UNIQUE,
+      label      TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now', 'localtime'))
+    )
+  `)
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS role_menus (
+      id      INTEGER PRIMARY KEY AUTOINCREMENT,
+      role_id INTEGER NOT NULL,
+      menu_id INTEGER NOT NULL,
+      UNIQUE(role_id, menu_id)
+    )
+  `)
+
+  // ---- 种子数据：菜单 ----
+  const menuCount = db.exec('SELECT COUNT(*) FROM menus')[0]?.values[0]?.[0] as number
+  if (menuCount === 0) {
+    const menuData = [
+      { id: 1, parent_id: 0, name: '数据概览', path: '/dashboard', icon: 'DataBoard', sort: 1 },
+      { id: 2, parent_id: 0, name: '系统管理', path: '', icon: 'Setting', sort: 2 },
+      { id: 3, parent_id: 2, name: '用户管理', path: '/users', icon: 'User', sort: 1 },
+      { id: 4, parent_id: 2, name: '角色管理', path: '/roles', icon: 'UserFilled', sort: 2 },
+      { id: 5, parent_id: 2, name: '菜单管理', path: '/menus', icon: 'Menu', sort: 3 },
+      { id: 6, parent_id: 0, name: '内容管理', path: '', icon: 'Document', sort: 3 },
+      { id: 7, parent_id: 6, name: '下载记录', path: '/downloads', icon: 'Download', sort: 1 },
+      { id: 8, parent_id: 6, name: '待办事项', path: '/todos', icon: 'Finished', sort: 2 },
+      { id: 9, parent_id: 6, name: '记事本', path: '/notes', icon: 'Notebook', sort: 3 },
+    ]
+    for (const m of menuData) {
+      db.run(
+        'INSERT INTO menus (id, parent_id, name, path, icon, sort_order, visible) VALUES (?, ?, ?, ?, ?, ?, 1)',
+        [m.id, m.parent_id, m.name, m.path, m.icon, m.sort]
+      )
+    }
+    console.log('已初始化菜单数据')
+  }
+
+  // ---- 种子数据：角色 ----
+  const roleCount = db.exec('SELECT COUNT(*) FROM roles')[0]?.values[0]?.[0] as number
+  if (roleCount === 0) {
+    db.run("INSERT INTO roles (id, name, label, description) VALUES (1, 'admin', '管理员', '拥有所有权限')")
+    db.run("INSERT INTO roles (id, name, label, description) VALUES (2, 'user', '普通用户', '基础权限')")
+    db.run("INSERT INTO roles (id, name, label, description) VALUES (3, 'editor', '编辑员', '内容管理权限')")
+    console.log('已初始化角色数据')
+  }
+
+  // ---- 种子数据：角色-菜单关联 ----
+  const rmCount = db.exec('SELECT COUNT(*) FROM role_menus')[0]?.values[0]?.[0] as number
+  if (rmCount === 0) {
+    // admin 拥有所有菜单
+    for (let menuId = 1; menuId <= 9; menuId++) {
+      db.run('INSERT INTO role_menus (role_id, menu_id) VALUES (1, ?)', [menuId])
+    }
+    // user 只有数据概览 + 内容管理
+    for (const menuId of [1, 6, 7, 8, 9]) {
+      db.run('INSERT INTO role_menus (role_id, menu_id) VALUES (2, ?)', [menuId])
+    }
+    // editor 有数据概览 + 内容管理
+    for (const menuId of [1, 6, 7, 8, 9]) {
+      db.run('INSERT INTO role_menus (role_id, menu_id) VALUES (3, ?)', [menuId])
+    }
+    console.log('已初始化角色菜单关联')
+  }
+
   // Seed admin user
   const userResult = db.exec('SELECT COUNT(*) FROM users WHERE username = ?', ['admin'])
   const userCount = userResult[0]?.values[0]?.[0] as number
