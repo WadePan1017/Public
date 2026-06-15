@@ -225,7 +225,7 @@ onMounted(() => {
   <div class="roles-page">
     <!-- 统计 -->
     <el-row :gutter="16" class="stats-row">
-      <el-col :span="8">
+      <el-col :xs="12" :sm="8">
         <div class="stat-card stat-blue">
           <div class="stat-info">
             <div class="stat-value">{{ stats.total }}</div>
@@ -234,7 +234,7 @@ onMounted(() => {
           <el-icon :size="36" class="stat-icon"><UserFilled /></el-icon>
         </div>
       </el-col>
-      <el-col :span="8">
+      <el-col :xs="12" :sm="8">
         <div class="stat-card stat-green">
           <div class="stat-info">
             <div class="stat-value">{{ stats.menuTotal }}</div>
@@ -243,7 +243,7 @@ onMounted(() => {
           <el-icon :size="36" class="stat-icon"><Menu /></el-icon>
         </div>
       </el-col>
-      <el-col :span="8">
+      <el-col :xs="12" :sm="8">
         <div class="stat-card stat-purple">
           <div class="stat-info">
             <div class="stat-value">{{ menuList.filter(m => m.parent_id === 0).length }}</div>
@@ -413,6 +413,12 @@ onMounted(() => {
 .stat-label {
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+@media (max-width: 767px) {
+  .stat-card { padding: 14px; }
+  .stat-value { font-size: 22px; }
+  .stat-icon { display: none; }
 }
 
 .card-header {

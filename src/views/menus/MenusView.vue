@@ -146,7 +146,7 @@ onMounted(fetchMenus)
   <div class="menus-page">
     <!-- 统计 -->
     <el-row :gutter="16" class="stats-row">
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <div class="stat-card stat-blue">
           <div class="stat-info">
             <div class="stat-value">{{ stats.total }}</div>
@@ -155,7 +155,7 @@ onMounted(fetchMenus)
           <el-icon :size="36" class="stat-icon"><Menu /></el-icon>
         </div>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <div class="stat-card stat-purple">
           <div class="stat-info">
             <div class="stat-value">{{ stats.directories }}</div>
@@ -164,7 +164,7 @@ onMounted(fetchMenus)
           <el-icon :size="36" class="stat-icon"><Folder /></el-icon>
         </div>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <div class="stat-card stat-green">
           <div class="stat-info">
             <div class="stat-value">{{ stats.pages }}</div>
@@ -173,7 +173,7 @@ onMounted(fetchMenus)
           <el-icon :size="36" class="stat-icon"><Document /></el-icon>
         </div>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <div class="stat-card stat-gray">
           <div class="stat-info">
             <div class="stat-value">{{ stats.hidden }}</div>
@@ -322,6 +322,12 @@ onMounted(fetchMenus)
 .stat-label {
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+@media (max-width: 767px) {
+  .stat-card { padding: 14px; }
+  .stat-value { font-size: 22px; }
+  .stat-icon { display: none; }
 }
 
 .card-header {

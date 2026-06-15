@@ -263,7 +263,7 @@ onMounted(() => {
   <div class="users-view">
     <!-- 统计卡片 -->
     <el-row :gutter="16" class="stats-row">
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <div class="stat-card stat-blue">
           <div class="stat-info">
             <div class="stat-value">{{ stats.total }}</div>
@@ -272,7 +272,7 @@ onMounted(() => {
           <el-icon :size="36" class="stat-icon"><User /></el-icon>
         </div>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <div class="stat-card stat-purple">
           <div class="stat-info">
             <div class="stat-value">{{ stats.adminCount }}</div>
@@ -281,7 +281,7 @@ onMounted(() => {
           <el-icon :size="36" class="stat-icon"><UserFilled /></el-icon>
         </div>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <div class="stat-card stat-green">
           <div class="stat-info">
             <div class="stat-value">{{ stats.activeCount }}</div>
@@ -290,7 +290,7 @@ onMounted(() => {
           <el-icon :size="36" class="stat-icon"><CircleCheck /></el-icon>
         </div>
       </el-col>
-      <el-col :span="6">
+      <el-col :xs="12" :sm="6">
         <div class="stat-card stat-orange">
           <div class="stat-info">
             <div class="stat-value">{{ stats.todayCount }}</div>
@@ -490,6 +490,12 @@ onMounted(() => {
 .stat-label {
   font-size: 13px;
   color: var(--text-secondary);
+}
+
+@media (max-width: 767px) {
+  .stat-card { padding: 14px; }
+  .stat-value { font-size: 22px; }
+  .stat-icon { display: none; }
 }
 
 .search-card {

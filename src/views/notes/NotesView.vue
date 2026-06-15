@@ -90,7 +90,7 @@ onMounted(fetchNotes)
   <div class="notes-page">
     <!-- 统计 -->
     <el-row :gutter="16" class="stats-row">
-      <el-col :span="8">
+      <el-col :xs="12" :sm="8">
         <div class="stat-card stat-blue">
           <div class="stat-info">
             <div class="stat-value">{{ noteList.length }}</div>
@@ -99,7 +99,7 @@ onMounted(fetchNotes)
           <el-icon :size="36" class="stat-icon"><Notebook /></el-icon>
         </div>
       </el-col>
-      <el-col :span="8">
+      <el-col :xs="12" :sm="8">
         <div class="stat-card stat-purple">
           <div class="stat-info">
             <div class="stat-value">{{ noteList.filter(n => n.content && n.content.length > 0).length }}</div>
@@ -108,7 +108,7 @@ onMounted(fetchNotes)
           <el-icon :size="36" class="stat-icon"><Document /></el-icon>
         </div>
       </el-col>
-      <el-col :span="8">
+      <el-col :xs="12" :sm="8">
         <div class="stat-card stat-green">
           <div class="stat-info">
             <div class="stat-value">{{ noteList.filter(n => n.updated_at?.startsWith(new Date().toISOString().slice(0, 10))).length }}</div>
@@ -208,6 +208,12 @@ onMounted(fetchNotes)
   line-height: 1; margin-bottom: 4px;
 }
 .stat-label { font-size: 13px; color: var(--text-secondary); }
+
+@media (max-width: 767px) {
+  .stat-card { padding: 14px; }
+  .stat-value { font-size: 22px; }
+  .stat-icon { display: none; }
+}
 
 .notes-card { height: calc(100vh - 240px); }
 .notes-card :deep(.el-card__body) { height: 100%; padding: 0; }

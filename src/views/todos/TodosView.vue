@@ -80,7 +80,7 @@ onMounted(fetchTodos)
   <div class="todos-page">
     <!-- 统计 -->
     <el-row :gutter="16" class="stats-row">
-      <el-col :span="8">
+      <el-col :xs="12" :sm="8">
         <div class="stat-card stat-blue">
           <div class="stat-info">
             <div class="stat-value">{{ totalCount }}</div>
@@ -89,7 +89,7 @@ onMounted(fetchTodos)
           <el-icon :size="36" class="stat-icon"><List /></el-icon>
         </div>
       </el-col>
-      <el-col :span="8">
+      <el-col :xs="12" :sm="8">
         <div class="stat-card stat-orange">
           <div class="stat-info">
             <div class="stat-value">{{ activeCount }}</div>
@@ -98,7 +98,7 @@ onMounted(fetchTodos)
           <el-icon :size="36" class="stat-icon"><Clock /></el-icon>
         </div>
       </el-col>
-      <el-col :span="8">
+      <el-col :xs="12" :sm="8">
         <div class="stat-card stat-green">
           <div class="stat-info">
             <div class="stat-value">{{ completedCount }}</div>
@@ -228,6 +228,12 @@ onMounted(fetchTodos)
   line-height: 1; margin-bottom: 4px;
 }
 .stat-label { font-size: 13px; color: var(--text-secondary); }
+
+@media (max-width: 767px) {
+  .stat-card { padding: 14px; }
+  .stat-value { font-size: 22px; }
+  .stat-icon { display: none; }
+}
 
 .card-header {
   display: flex; align-items: center; justify-content: space-between;

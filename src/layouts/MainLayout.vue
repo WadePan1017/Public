@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import type { FormInstance, FormRules } from 'element-plus'
@@ -11,6 +11,16 @@ const router = useRouter()
 const route = useRoute()
 const userStore = useUserStore()
 const isCollapse = ref(false)
+const drawerVisible = ref(false)
+
+// 响应式检测
+const isMobile = ref(window.innerWidth < 768)
+function handleResize() {
+  isMobile.value = window.innerWidth < 768
+  if (!isMobile.value) drawerVisible.value = false
+}
+onMounted(() => window.addEventListener('resize', handleResize))
+onUnmounted(() => window.removeEventListener('resize', handleResize))
 
 // 修改密码
 const pwdDialogVisible = ref(false)
@@ -63,18 +73,10 @@ async function handleChangePassword() {
 function buildMenuTree(list: MenuItem[]): MenuItem[] {
   const map = new Map<number, MenuItem>()
   const roots: MenuItem[] = []
-  list.forEach(item => {
-    map.set(item.id, { ...item, children: [] })
-  })
+  list.forEach(item => { map.set(item.id, { ...item, children: [] }) })
   map.forEach(item => {
-    if (item.parent_id === 0) {
-      roots.push(item)
-    } else {
-      const parent = map.get(item.parent_id)
-      if (parent) {
-        parent.children!.push(item)
-      }
-    }
+    if (item.parent_id === 0) roots.push(item)
+    else { const parent = map.get(item.parent_id); if (parent) parent.children!.push(item) }
   })
   return roots
 }
@@ -82,34 +84,39 @@ function buildMenuTree(list: MenuItem[]): MenuItem[] {
 const menuTree = computed(() => buildMenuTree(userStore.menus))
 
 function handleMenuSelect(path: string) {
-  if (path) router.push(path)
+  if (path) {
+    router.push(path)
+    if (isMobile.value) drawerVisible.value = false
+  }
+}
+
+function toggleSidebar() {
+  if (isMobile.value) drawerVisible.value = !drawerVisible.value
+  else isCollapse.value = !isCollapse.value
 }
 
 async function handleLogout() {
   try {
     await ElMessageBox.confirm('确定要退出登录吗？', '提示', {
-      confirmButtonText: '确定',
-      cancelButtonText: '取消',
-      type: 'warning',
+      confirmButtonText: '确定', cancelButtonText: '取消', type: 'warning',
     })
     userStore.logout()
     router.push('/login')
-  } catch {
-    // cancelled
-  }
+  } catch { /* cancelled */ }
 }
 
+// 移动端点击遮罩关闭
+function onDrawerClose() { drawerVisible.value = false }
+
 onMounted(async () => {
-  if (userStore.isLoggedIn() && !userStore.userInfo) {
-    await userStore.fetchUserInfo()
-  }
+  if (userStore.isLoggedIn() && !userStore.userInfo) await userStore.fetchUserInfo()
 })
 </script>
 
 <template>
   <el-container class="layout">
-    <!-- 侧边栏 -->
-    <el-aside :width="isCollapse ? '64px' : '240px'" class="sidebar">
+    <!-- 桌面端侧边栏 -->
+    <el-aside v-if="!isMobile" :width="isCollapse ? '64px' : '240px'" class="sidebar">
       <div class="sidebar-header">
         <div class="logo-wrap">
           <div class="logo-icon">
@@ -123,33 +130,21 @@ onMounted(async () => {
           </transition>
         </div>
       </div>
-
       <div class="sidebar-menu">
-        <el-menu
-          :default-active="route.path"
-          :collapse="isCollapse"
-          :collapse-transition="false"
-          background-color="transparent"
-          text-color="var(--text-sidebar)"
-          active-text-color="var(--text-sidebar-active)"
-          @select="handleMenuSelect"
-        >
+        <el-menu :default-active="route.path" :collapse="isCollapse" :collapse-transition="false"
+          background-color="transparent" text-color="var(--text-sidebar)" active-text-color="var(--text-sidebar-active)"
+          @select="handleMenuSelect">
           <template v-for="item in menuTree" :key="item.id">
             <el-sub-menu v-if="item.children && item.children.length" :index="item.path || String(item.id)">
               <template #title>
                 <el-icon v-if="item.icon"><component :is="item.icon" /></el-icon>
                 <span>{{ item.name }}</span>
               </template>
-              <el-menu-item
-                v-for="child in item.children"
-                :key="child.id"
-                :index="child.path"
-              >
+              <el-menu-item v-for="child in item.children" :key="child.id" :index="child.path">
                 <el-icon v-if="child.icon"><component :is="child.icon" /></el-icon>
                 <template #title>{{ child.name }}</template>
               </el-menu-item>
             </el-sub-menu>
-
             <el-menu-item v-else :index="item.path">
               <el-icon v-if="item.icon"><component :is="item.icon" /></el-icon>
               <template #title>{{ item.name }}</template>
@@ -157,68 +152,86 @@ onMounted(async () => {
           </template>
         </el-menu>
       </div>
-
       <div class="sidebar-footer">
-        <transition name="fade">
-          <span v-show="!isCollapse" class="version-text">v1.0.0</span>
-        </transition>
+        <transition name="fade"><span v-show="!isCollapse" class="version-text">v1.0.0</span></transition>
       </div>
     </el-aside>
 
+    <!-- 移动端侧边栏抽屉 -->
+    <el-drawer v-model="drawerVisible" direction="ltr" :size="260" :show-close="false"
+      class="mobile-drawer" :before-close="onDrawerClose">
+      <template #header>
+        <div class="drawer-logo">
+          <svg width="24" height="24" viewBox="0 0 48 48" fill="none">
+            <rect width="48" height="48" rx="12" fill="#4f46e5" fill-opacity="0.15"/>
+            <path d="M14 24L22 32L34 16" stroke="#4f46e5" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+          <span class="drawer-logo-text">Admin Pro</span>
+        </div>
+      </template>
+      <el-menu :default-active="route.path" background-color="transparent"
+        text-color="var(--text-primary)" active-text-color="var(--primary)"
+        @select="handleMenuSelect">
+        <template v-for="item in menuTree" :key="item.id">
+          <el-sub-menu v-if="item.children && item.children.length" :index="item.path || String(item.id)">
+            <template #title>
+              <el-icon v-if="item.icon"><component :is="item.icon" /></el-icon>
+              <span>{{ item.name }}</span>
+            </template>
+            <el-menu-item v-for="child in item.children" :key="child.id" :index="child.path">
+              <el-icon v-if="child.icon"><component :is="child.icon" /></el-icon>
+              <template #title>{{ child.name }}</template>
+            </el-menu-item>
+          </el-sub-menu>
+          <el-menu-item v-else :index="item.path">
+            <el-icon v-if="item.icon"><component :is="item.icon" /></el-icon>
+            <template #title>{{ item.name }}</template>
+          </el-menu-item>
+        </template>
+      </el-menu>
+    </el-drawer>
+
     <!-- 右侧内容 -->
     <el-container class="main-container">
-      <!-- 顶部栏 -->
       <el-header class="topbar">
         <div class="topbar-left">
-          <el-icon class="collapse-btn" @click="isCollapse = !isCollapse">
-            <Fold v-if="!isCollapse" />
-            <Expand v-else />
+          <el-icon class="collapse-btn" @click="toggleSidebar">
+            <Fold v-if="!isMobile && !isCollapse" />
+            <Expand v-if="!isMobile && isCollapse" />
+            <Operation v-if="isMobile" />
           </el-icon>
-          <el-breadcrumb separator="/" class="breadcrumb">
+          <el-breadcrumb separator="/" class="breadcrumb" v-if="!isMobile">
             <el-breadcrumb-item :to="{ path: '/dashboard' }">首页</el-breadcrumb-item>
             <el-breadcrumb-item v-if="route.meta.title">{{ route.meta.title }}</el-breadcrumb-item>
           </el-breadcrumb>
+          <span v-else class="page-title-mobile">{{ route.meta.title || '首页' }}</span>
         </div>
-
         <div class="topbar-right">
-          <div class="user-dropdown">
-            <el-dropdown @command="handleLogout" trigger="click">
-              <div class="user-info">
-                <div class="user-avatar">
-                  <el-icon :size="16"><UserFilled /></el-icon>
-                </div>
-                <span class="user-name">{{ userStore.userInfo?.name || '管理员' }}</span>
-                <el-icon class="user-arrow"><ArrowDown /></el-icon>
-              </div>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item @click="openChangePassword">
-                    <el-icon><Lock /></el-icon>
-                    修改密码
-                  </el-dropdown-item>
-                  <el-dropdown-item divided command="logout">
-                    <el-icon><SwitchButton /></el-icon>
-                    退出登录
-                  </el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
-          </div>
+          <el-dropdown @command="handleLogout" trigger="click">
+            <div class="user-info">
+              <div class="user-avatar"><el-icon :size="16"><UserFilled /></el-icon></div>
+              <span class="user-name" v-if="!isMobile">{{ userStore.userInfo?.name || '管理员' }}</span>
+              <el-icon class="user-arrow"><ArrowDown /></el-icon>
+            </div>
+            <template #dropdown>
+              <el-dropdown-menu>
+                <el-dropdown-item @click="openChangePassword"><el-icon><Lock /></el-icon>修改密码</el-dropdown-item>
+                <el-dropdown-item divided command="logout"><el-icon><SwitchButton /></el-icon>退出登录</el-dropdown-item>
+              </el-dropdown-menu>
+            </template>
+          </el-dropdown>
         </div>
       </el-header>
 
-      <!-- 内容区 -->
       <el-main class="content">
         <router-view v-slot="{ Component }">
-          <transition name="slide" mode="out-in">
-            <component :is="Component" />
-          </transition>
+          <transition name="slide" mode="out-in"><component :is="Component" /></transition>
         </router-view>
       </el-main>
     </el-container>
 
     <!-- 修改密码弹窗 -->
-    <el-dialog title="修改密码" v-model="pwdDialogVisible" width="420px" destroy-on-close>
+    <el-dialog title="修改密码" v-model="pwdDialogVisible" :width="isMobile ? '95%' : '420px'" destroy-on-close>
       <el-form ref="pwdFormRef" :model="pwdForm" :rules="pwdRules" label-width="80px">
         <el-form-item label="原密码" prop="oldPassword">
           <el-input v-model="pwdForm.oldPassword" type="password" show-password placeholder="请输入原密码" />
@@ -239,207 +252,67 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.layout {
-  min-height: 100vh;
-}
+.layout { min-height: 100vh; }
 
 /* 侧边栏 */
 .sidebar {
-  background: var(--bg-sidebar);
-  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
-  display: flex;
-  flex-direction: column;
+  background: var(--bg-sidebar); transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  overflow: hidden; display: flex; flex-direction: column;
 }
+.sidebar-header { height: var(--header-height); display: flex; align-items: center; padding: 0 16px; border-bottom: 1px solid rgba(255,255,255,0.06); }
+.logo-wrap { display: flex; align-items: center; gap: 12px; overflow: hidden; }
+.logo-icon { flex-shrink: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; }
+.logo-text { font-size: 18px; font-weight: 700; color: #fff; white-space: nowrap; letter-spacing: -0.3px; }
+.sidebar-menu { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 8px 0; }
+.sidebar-footer { padding: 12px 16px; border-top: 1px solid rgba(255,255,255,0.06); text-align: center; }
+.version-text { font-size: 11px; color: rgba(255,255,255,0.3); }
 
-.sidebar-header {
-  height: var(--header-height);
-  display: flex;
-  align-items: center;
-  padding: 0 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
-}
+.sidebar :deep(.el-menu) { border-right: none; }
+.sidebar :deep(.el-menu-item), .sidebar :deep(.el-sub-menu__title) { height: 44px; line-height: 44px; margin: 2px 8px; border-radius: 8px; font-size: 14px; }
+.sidebar :deep(.el-menu-item:hover), .sidebar :deep(.el-sub-menu__title:hover) { background: var(--bg-sidebar-hover) !important; }
+.sidebar :deep(.el-menu-item.is-active) { background: var(--bg-sidebar-active) !important; font-weight: 600; }
+.sidebar :deep(.el-sub-menu .el-menu-item) { padding-left: 52px !important; font-size: 13px; }
 
-.logo-wrap {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  overflow: hidden;
-}
-
-.logo-icon {
-  flex-shrink: 0;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.logo-text {
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
-  white-space: nowrap;
-  letter-spacing: -0.3px;
-}
-
-.sidebar-menu {
-  flex: 1;
-  overflow-y: auto;
-  overflow-x: hidden;
-  padding: 8px 0;
-}
-
-.sidebar-footer {
-  padding: 12px 16px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  text-align: center;
-}
-
-.version-text {
-  font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
-}
-
-/* Element Plus 菜单覆盖 */
-.sidebar :deep(.el-menu) {
-  border-right: none;
-}
-
-.sidebar :deep(.el-menu-item),
-.sidebar :deep(.el-sub-menu__title) {
-  height: 44px;
-  line-height: 44px;
-  margin: 2px 8px;
-  border-radius: 8px;
-  font-size: 14px;
-}
-
-.sidebar :deep(.el-menu-item:hover),
-.sidebar :deep(.el-sub-menu__title:hover) {
-  background: var(--bg-sidebar-hover) !important;
-}
-
-.sidebar :deep(.el-menu-item.is-active) {
-  background: var(--bg-sidebar-active) !important;
-  font-weight: 600;
-}
-
-.sidebar :deep(.el-sub-menu .el-menu-item) {
-  padding-left: 52px !important;
-  font-size: 13px;
-}
-
-.sidebar :deep(.el-menu--collapse .el-menu-item),
-.sidebar :deep(.el-menu--collapse .el-sub-menu__title) {
-  margin: 2px 6px;
-}
+/* 移动端抽屉 */
+.mobile-drawer :deep(.el-drawer__header) { padding: 16px; margin-bottom: 0; border-bottom: 1px solid var(--border); }
+.drawer-logo { display: flex; align-items: center; gap: 10px; }
+.drawer-logo-text { font-size: 18px; font-weight: 700; color: var(--text-primary); }
 
 /* 顶部栏 */
 .topbar {
-  height: var(--header-height);
-  background: var(--bg-card);
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 24px;
-  box-shadow: var(--shadow-sm);
+  height: var(--header-height); background: var(--bg-card);
+  border-bottom: 1px solid var(--border); display: flex;
+  align-items: center; justify-content: space-between;
+  padding: 0 16px; box-shadow: var(--shadow-sm);
 }
-
-.topbar-left {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-}
-
+.topbar-left { display: flex; align-items: center; gap: 12px; }
 .collapse-btn {
-  font-size: 20px;
-  cursor: pointer;
-  color: var(--text-secondary);
-  padding: 4px;
-  border-radius: 6px;
-  transition: all 0.2s;
+  font-size: 20px; cursor: pointer; color: var(--text-secondary);
+  padding: 4px; border-radius: 6px; transition: all 0.2s;
 }
-
-.collapse-btn:hover {
-  color: var(--primary);
-  background: var(--primary-bg);
-}
-
-.breadcrumb {
-  font-size: 14px;
-}
-
-.topbar-right {
-  display: flex;
-  align-items: center;
-}
-
-.user-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  cursor: pointer;
-  padding: 6px 12px;
-  border-radius: 8px;
-  transition: background 0.2s;
-}
-
-.user-info:hover {
-  background: var(--bg);
-}
-
-.user-avatar {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: var(--primary-bg);
-  color: var(--primary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.user-name {
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-primary);
-}
-
-.user-arrow {
-  font-size: 12px;
-  color: var(--text-muted);
-}
+.collapse-btn:hover { color: var(--primary); background: var(--primary-bg); }
+.breadcrumb { font-size: 14px; }
+.page-title-mobile { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+.topbar-right { display: flex; align-items: center; }
+.user-info { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 6px 10px; border-radius: 8px; transition: background 0.2s; }
+.user-info:hover { background: var(--bg); }
+.user-avatar { width: 32px; height: 32px; border-radius: 8px; background: var(--primary-bg); color: var(--primary); display: flex; align-items: center; justify-content: center; }
+.user-name { font-size: 14px; font-weight: 500; color: var(--text-primary); }
+.user-arrow { font-size: 12px; color: var(--text-muted); }
 
 /* 内容区 */
-.content {
-  background: var(--bg);
-  padding: 20px;
-  overflow-y: auto;
-}
+.content { background: var(--bg); padding: 16px; overflow-y: auto; }
 
-/* 路由过渡 */
-.slide-enter-active,
-.slide-leave-active {
-  transition: all 0.2s ease;
-}
-.slide-enter-from {
-  opacity: 0;
-  transform: translateY(8px);
-}
-.slide-leave-to {
-  opacity: 0;
-  transform: translateY(-8px);
-}
+/* 过渡 */
+.slide-enter-active, .slide-leave-active { transition: all 0.2s ease; }
+.slide-enter-from { opacity: 0; transform: translateY(8px); }
+.slide-leave-to { opacity: 0; transform: translateY(-8px); }
+.fade-enter-active, .fade-leave-active { transition: opacity 0.2s; }
+.fade-enter-from, .fade-leave-to { opacity: 0; }
 
-.fade-enter-active,
-.fade-leave-active {
-  transition: opacity 0.2s;
-}
-.fade-enter-from,
-.fade-leave-to {
-  opacity: 0;
+/* 移动端适配 */
+@media (max-width: 767px) {
+  .content { padding: 12px; }
+  .topbar { padding: 0 12px; }
 }
 </style>
